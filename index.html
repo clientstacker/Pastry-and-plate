@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pastry & Plate</title>
+<style>
+  :root{--cream:#fdf8f1;--ink:#2b2118;--accent:#c4572b;--accent2:#e8a33d;--card:#ffffff;--muted:#8a7b6c;--line:#eadfce}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Georgia,'Times New Roman',serif;background:var(--cream);color:var(--ink);line-height:1.5}
+  header{padding:22px 20px;text-align:center;border-bottom:2px solid var(--ink);background:var(--cream);position:sticky;top:0;z-index:5}
+  header h1{font-size:2rem;letter-spacing:2px;cursor:pointer}
+  header p{color:var(--muted);font-style:italic;font-size:.9rem}
+  nav{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;border-bottom:1px solid var(--line);background:#fff}
+  nav button{font-family:inherit;border:1px solid var(--ink);background:#fff;padding:8px 16px;border-radius:20px;cursor:pointer;white-space:nowrap;font-size:.9rem}
+  nav button.active{background:var(--ink);color:#fff}
+  main{max-width:1000px;margin:0 auto;padding:20px 16px 80px}
+  .banner{background:var(--ink);color:#fff;padding:18px;border-radius:10px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .banner b{color:var(--accent2)}
+  .btn{font-family:inherit;background:var(--accent);color:#fff;border:none;padding:10px 18px;border-radius:6px;cursor:pointer;font-size:.95rem}
+  .btn.alt{background:var(--accent2);color:var(--ink)}
+  .btn.ghost{background:transparent;border:1px solid var(--ink);color:var(--ink)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;transition:transform .15s;position:relative}
+  .card:hover{transform:translateY(-3px)}
+  .card .emoji{font-size:3.2rem;text-align:center;padding:22px 0;background:#f6ecdc}
+  .card .body{padding:14px}
+  .card h3{font-size:1.05rem;margin-bottom:4px}
+  .card small{color:var(--muted)}
+  .badge{position:absolute;top:10px;right:10px;background:var(--accent);color:#fff;font-size:.7rem;padding:3px 8px;border-radius:10px}
+  .badge.free{background:#4a8c5c}
+  .locked .emoji{filter:grayscale(.8);opacity:.6}
+  h2.section{margin:6px 0 14px;font-size:1.5rem;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .recipe h2{font-size:1.8rem;margin-bottom:6px}
+  .recipe .meta{color:var(--muted);margin-bottom:16px}
+  .recipe h3{margin:18px 0 8px}
+  .recipe ul,.recipe ol{padding-left:22px}
+  .recipe li{margin-bottom:6px}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+  .modal-bg.open{display:flex}
+  .modal{background:#fff;border-radius:12px;padding:26px;max-width:560px;width:100%}
+  .modal h2{margin-bottom:8px}
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+  @media(max-width:520px){.plans{grid-template-columns:1fr}}
+  .plan{border:2px solid var(--line);border-radius:10px;padding:16px;text-align:center}
+  .plan.best{border-color:var(--accent)}
+  .plan .price{font-size:1.6rem;margin:8px 0}
+  .plan ul{list-style:none;font-size:.85rem;color:var(--muted);margin-bottom:12px;text-align:left}
+  .plan li{margin-bottom:4px}
+  .status{font-size:.85rem;color:var(--muted);text-align:center;margin-top:30px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:8px;display:none;z-index:30}
+</style>
+</head>
+<body>
+<header>
+  <h1 onclick="go('home')">PASTRY & PLATE</h1>
+  <p>The digital recipe magazine</p>
+</header>
+<nav id="nav"></nav>
+<main id="app"></main>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h2>Unlock more recipes</h2>
+    <p>Choose how you want to access the locked recipes.</p>
+    <div class="plans">
+      <div class="plan">
+        <h3>Once-off</h3>
+        <div class="price">$4.99</div>
+        <ul><li>✓ Unlocks all locked recipes</li><li>✓ Pay once, keep forever</li><li>✗ No future updates</li></ul>
+        <button class="btn ghost" onclick="buy('once')">Buy once-off</button>
+      </div>
+      <div class="plan best">
+        <h3>Subscription</h3>
+        <div class="price">$2.99/mo</div>
+        <ul><li>✓ Unlocks everything</li><li>✓ New recipes as they drop</li><li>✓ No once-off fee needed</li></ul>
+        <button class="btn" onclick="buy('sub')">Subscribe</button>
+      </div>
+    </div>
+    <button class="btn ghost" onclick="closeModal()">Close</button>
+    <p class="status">Test mode: no real payment is taken.</p>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- CONFIG ----------
+const FREE_LIMIT = 5; // change to 25 when you have 50 recipes per category
+
+const CATEGORIES = [
+  {id:'pastry',name:'Pastry & Baking',emoji:'🥐'},
+  {id:'cooking',name:'Cooking',emoji:'🍳'},
+  {id:'meat',name:'Meat Preparation',emoji:'🥩'},
+  {id:'beverages',name:'Beverages',emoji:'☕'},
+  {id:'dessert',name:'Dessert',emoji:'🍰'}
+];
+
+// ---------- RECIPES ----------
+// Each recipe: title, emoji, time, serves, ingredients[], steps[]
+const RECIPES = {
+ pastry:[
+  {t:'Classic Butter Croissants',e:'🥐',time:'4 hrs',serves:8,ing:['500g bread flour','10g salt','55g sugar','10g instant yeast','300ml cold milk','280g cold butter block'],steps:['Mix flour, salt, sugar, yeast and milk into a dough and chill for 1 hour.','Roll the dough out and enclose the butter block inside.','Fold in thirds, chill 30 minutes, and repeat three times.','Roll thin, cut triangles, and roll into croissant shapes.','Proof for 2 hours until puffy.','Brush with egg wash and bake at 200°C for 18 minutes until golden.']},
+  {t:'Buttermilk Scones',e:'🧁',time:'35 min',serves:8,ing:['300g flour','1 tbsp baking powder','60g cold butter','2 tbsp sugar','150ml buttermilk','1 egg'],steps:['Heat oven to 220°C.','Rub butter into flour and baking powder until crumbly.','Stir in sugar, then add buttermilk to form a soft dough.','Pat out 3cm thick and cut rounds.','Brush with egg and bake 12 to 15 minutes.']},
+  {t:'Shortcrust Pastry Base',e:'🥧',time:'45 min',serves:8,ing:['250g flour','125g cold butter','pinch of salt','4 tbsp iced water'],steps:['Rub butter into flour and salt until like breadcrumbs.','Add iced water a spoon at a time until dough forms.','Wrap and rest in the fridge for 30 minutes.','Roll out, line a tin, and blind bake at 180°C for 15 minutes.']},
+  {t:'Cinnamon Rolls',e:'🍥',time:'3 hrs',serves:12,ing:['450g flour','7g yeast','60g sugar','240ml warm milk','60g butter','2 tbsp cinnamon','100g brown sugar'],steps:['Make a soft dough with flour, yeast, sugar, milk and butter, then knead 8 minutes.','Rise 1 hour.','Roll into a rectangle, spread with butter, brown sugar and cinnamon.','Roll up tightly and slice into 12.','Rise 45 minutes, then bake at 180°C for 22 minutes.']},
+  {t:'Chocolate Eclairs',e:'🍫',time:'2 hrs',serves:10,ing:['120g flour','100g butter','250ml water','4 eggs','300ml cream','150g dark chocolate'],steps:['Boil water and butter, then beat in flour to form a paste.','Cool slightly, then beat in eggs one at a time.','Pipe fingers onto a tray and bake at 200°C for 30 minutes.','Cool, then fill with whipped cream.','Dip the tops in melted chocolate.']},
+  {t:'Apple Turnovers',e:'🍎',time:'50 min',serves:6,ing:['1 sheet puff pastry','3 apples','50g sugar','1 tsp cinnamon','1 egg'],steps:['Cook diced apples with sugar and cinnamon for 8 minutes.','Cut pastry into squares and add filling.','Fold into triangles and seal edges.','Brush with egg and bake at 200°C for 20 minutes.']},
+  {t:'Danish Pastries',e:'🥮',time:'5 hrs',serves:10,ing:['500g flour','250g butter','10g yeast','60g sugar','250ml milk','jam or custard'],steps:['Make dough and laminate with butter like a croissant.','Roll out and cut squares.','Fold corners to the centre and add filling.','Proof 1 hour.','Bake at 190°C for 18 minutes.']},
+  {t:'Cheese Straws',e:'🧀',time:'30 min',serves:20,ing:['1 sheet puff pastry','100g grated cheddar','1 tsp mustard','1 egg'],steps:['Spread mustard on pastry and sprinkle with cheese.','Fold, roll slightly, and cut into strips.','Twist each strip and place on a tray.','Brush with egg and bake at 200°C for 12 minutes.']},
+  {t:'Banana Bread',e:'🍌',time:'1 hr 15 min',serves:10,ing:['3 ripe bananas','75g melted butter','150g sugar','1 egg','190g flour','1 tsp baking soda'],steps:['Heat oven to 175°C and grease a loaf tin.','Mash bananas and mix in butter, sugar and egg.','Fold in flour and baking soda.','Pour into the tin and bake 60 minutes.']},
+  {t:'Sausage Rolls',e:'🌭',time:'45 min',serves:12,ing:['2 sheets puff pastry','500g sausage meat','1 onion','1 tsp herbs','1 egg'],steps:['Mix sausage meat with grated onion and herbs.','Place a log of filling along each pastry sheet.','Roll and seal, then cut into pieces.','Brush with egg and bake at 200°C for 25 minutes.']}
+ ],
+ cooking:[
+  {t:'Perfect Fried Rice',e:'🍚',time:'20 min',serves:3,ing:['3 cups cooked cold rice','2 eggs','1 cup mixed veg','3 tbsp soy sauce','2 spring onions','oil'],steps:['Heat oil in a wok until very hot.','Scramble the eggs and set aside.','Stir fry vegetables for 2 minutes.','Add rice and soy sauce and toss on high heat.','Return eggs, add spring onion, and serve.']},
+  {t:'Creamy Tomato Pasta',e:'🍝',time:'25 min',serves:4,ing:['400g pasta','1 can tomatoes','3 garlic cloves','100ml cream','basil','olive oil'],steps:['Boil pasta in salted water until al dente.','Fry garlic in olive oil, add tomatoes and simmer 10 minutes.','Stir in cream and basil.','Toss the pasta through the sauce and serve.']},
+  {t:'Vegetable Soup',e:'🥣',time:'40 min',serves:6,ing:['2 carrots','2 potatoes','1 onion','2 celery sticks','1.5L stock','herbs'],steps:['Dice all vegetables.','Soften onion in a pot with oil.','Add the rest and the stock.','Simmer 25 minutes until tender, then season.']},
+  {t:'Crispy Fried Chicken',e:'🍗',time:'1 hr',serves:4,ing:['8 chicken pieces','300ml buttermilk','200g flour','2 tsp paprika','oil for frying'],steps:['Marinate chicken in buttermilk for 2 hours.','Season flour with paprika, salt and pepper.','Coat the chicken in flour.','Fry at 170°C for 12 to 15 minutes until cooked through.']},
+  {t:'Simple Vegetable Curry',e:'🍛',time:'35 min',serves:4,ing:['1 onion','2 tbsp curry paste','1 can coconut milk','2 potatoes','1 cup peas'],steps:['Fry onion until soft.','Add curry paste and cook 1 minute.','Add potatoes and coconut milk.','Simmer 20 minutes, add peas, and serve with rice.']},
+  {t:'Garlic Butter Prawns',e:'🍤',time:'12 min',serves:3,ing:['400g prawns','4 garlic cloves','50g butter','lemon','parsley'],steps:['Melt butter in a hot pan.','Fry garlic for 30 seconds.','Add prawns and cook 2 minutes each side.','Finish with lemon and parsley.']},
+  {t:'Shakshuka',e:'🍳',time:'30 min',serves:3,ing:['1 can tomatoes','1 pepper','1 onion','2 tsp cumin','4 eggs'],steps:['Soften onion and pepper.','Add cumin and tomatoes and simmer 10 minutes.','Make wells and crack in the eggs.','Cover and cook until the whites set.']},
+  {t:'Mashed Potatoes',e:'🥔',time:'30 min',serves:4,ing:['1kg potatoes','60g butter','100ml warm milk','salt'],steps:['Peel and chop the potatoes.','Boil 15 to 20 minutes until soft.','Drain and mash with butter.','Add warm milk and season.']},
+  {t:'Chicken Stir Fry',e:'🥘',time:'20 min',serves:3,ing:['400g chicken strips','mixed vegetables','3 tbsp soy sauce','1 tbsp ginger','oil'],steps:['Fry chicken until golden and set aside.','Stir fry ginger and vegetables.','Return chicken and add soy sauce.','Toss for 2 minutes and serve.']},
+  {t:'Classic Omelette',e:'🥚',time:'8 min',serves:1,ing:['3 eggs','knob of butter','cheese','salt'],steps:['Whisk eggs with salt.','Melt butter in a pan over medium heat.','Pour in the eggs and stir gently.','Add cheese, fold, and slide onto a plate.']}
+ ],
+ meat:[
+  {t:'Perfect Pan-Seared Steak',e:'🥩',time:'20 min',serves:2,ing:['2 ribeye steaks','oil','butter','garlic','thyme','salt'],steps:['Bring steaks to room temperature and salt well.','Heat a pan until smoking and add oil.','Sear 3 minutes per side.','Add butter, garlic and thyme and baste for 1 minute.','Rest 5 minutes before slicing.']},
+  {t:'Slow-Roast Lamb Shoulder',e:'🍖',time:'4 hrs',serves:6,ing:['2kg lamb shoulder','garlic','rosemary','olive oil','lemon'],steps:['Heat oven to 160°C.','Stab the lamb and push in garlic and rosemary.','Rub with oil, salt and lemon.','Cover and roast 3.5 hours.','Uncover and roast 20 more minutes to brown.']},
+  {t:'Juicy Roast Chicken',e:'🍗',time:'1 hr 30 min',serves:4,ing:['1 whole chicken','60g butter','lemon','garlic','thyme'],steps:['Heat oven to 200°C.','Rub butter under and over the skin.','Stuff cavity with lemon, garlic and thyme.','Roast 70 to 80 minutes until juices run clear.','Rest 15 minutes.']},
+  {t:'Braai Boerewors',e:'🌭',time:'25 min',serves:6,ing:['1kg boerewors coil','oil'],steps:['Get coals to a medium heat.','Place the coil on the grid without piercing.','Cook 8 minutes per side.','Rest 3 minutes and serve.']},
+  {t:'Beef Burgers',e:'🍔',time:'25 min',serves:4,ing:['600g beef mince','salt','pepper','4 buns','cheese'],steps:['Mix mince with salt and pepper and form 4 patties.','Fry or grill 4 minutes per side.','Add cheese in the last minute.','Serve in toasted buns.']},
+  {t:'BBQ Pork Ribs',e:'🍖',time:'3 hrs',serves:4,ing:['1 rack pork ribs','BBQ rub','BBQ sauce'],steps:['Rub the ribs generously and rest 1 hour.','Wrap in foil and bake at 150°C for 2.5 hours.','Unwrap, brush with sauce.','Grill 10 minutes until sticky.']},
+  {t:'Lemon Herb Grilled Chicken',e:'🍋',time:'35 min',serves:4,ing:['4 chicken breasts','lemon','garlic','oregano','olive oil'],steps:['Marinate chicken for 30 minutes.','Heat the grill to medium-high.','Cook 6 minutes per side.','Rest 5 minutes and serve.']},
+  {t:'Beef Stew',e:'🥘',time:'2 hrs 30 min',serves:6,ing:['1kg stewing beef','2 carrots','1 onion','500ml stock','tomato paste'],steps:['Brown the beef in batches.','Soften the onion and add tomato paste.','Return beef with stock and carrots.','Simmer gently 2 hours until tender.']},
+  {t:'Honey Glazed Gammon',e:'🍯',time:'2 hrs',serves:8,ing:['2kg gammon','4 tbsp honey','2 tbsp mustard','cloves'],steps:['Simmer gammon 1 hour.','Score the fat and stud with cloves.','Brush with honey and mustard.','Roast at 200°C for 25 minutes.']},
+  {t:'Meatballs in Sauce',e:'🍝',time:'45 min',serves:4,ing:['500g mince','1 egg','breadcrumbs','tomato sauce'],steps:['Mix mince, egg and breadcrumbs.','Roll into balls.','Brown in a pan.','Simmer in tomato sauce for 20 minutes.']}
+ ],
+ beverages:[
+  {t:'Classic Cappuccino',e:'☕',time:'5 min',serves:1,ing:['1 double espresso','150ml whole milk'],steps:['Pull a double espresso into a cup.','Steam milk until thick and glossy.','Pour milk over the espresso.','Top with a spoon of foam.']},
+  {t:'Iced Matcha Latte',e:'🍵',time:'5 min',serves:1,ing:['2 tsp matcha','60ml hot water','200ml cold milk','ice','honey'],steps:['Whisk matcha with hot water until smooth.','Fill a glass with ice and milk.','Pour the matcha on top.','Sweeten with honey.']},
+  {t:'Rich Hot Chocolate',e:'🍫',time:'10 min',serves:2,ing:['500ml milk','100g dark chocolate','1 tbsp sugar'],steps:['Heat the milk gently.','Add chopped chocolate and sugar.','Whisk until smooth and steaming.','Serve in warm mugs.']},
+  {t:'Fresh Lemonade',e:'🍋',time:'10 min',serves:4,ing:['6 lemons','150g sugar','1L cold water','ice','mint'],steps:['Juice the lemons.','Stir in sugar until dissolved.','Add water and ice.','Garnish with mint.']},
+  {t:'Chai Latte',e:'🫖',time:'15 min',serves:2,ing:['2 black tea bags','300ml milk','cinnamon','cardamom','ginger','honey'],steps:['Simmer spices in 200ml water for 5 minutes.','Add tea and steep 3 minutes.','Add milk and heat through.','Strain and sweeten.']},
+  {t:'Strawberry Smoothie',e:'🍓',time:'5 min',serves:2,ing:['2 cups strawberries','1 banana','250ml yoghurt','honey'],steps:['Add everything to a blender.','Blend until smooth.','Taste and adjust sweetness.','Serve cold.']},
+  {t:'Iced Coffee',e:'🧊',time:'5 min',serves:1,ing:['2 shots espresso','ice','200ml milk','syrup'],steps:['Fill a glass with ice.','Add milk and syrup.','Pour the espresso on top.','Stir and enjoy.']},
+  {t:'Ginger Mint Iced Tea',e:'🍹',time:'20 min',serves:4,ing:['4 tea bags','ginger','mint','honey','1L water'],steps:['Steep tea with sliced ginger for 5 minutes.','Remove tea bags and add honey.','Cool completely.','Serve over ice with mint.']},
+  {t:'Mango Lassi',e:'🥭',time:'5 min',serves:2,ing:['1 cup mango','250ml yoghurt','100ml milk','honey'],steps:['Blend all ingredients until silky.','Chill if desired.','Serve in tall glasses.']},
+  {t:'Classic Milkshake',e:'🥤',time:'5 min',serves:1,ing:['3 scoops vanilla ice cream','150ml milk','chocolate syrup'],steps:['Blend ice cream and milk.','Swirl syrup inside a glass.','Pour in the shake and top with cream.']}
+ ],
+ dessert:[
+  {t:'Chocolate Lava Cakes',e:'🍫',time:'30 min',serves:4,ing:['100g dark chocolate','100g butter','2 eggs','2 yolks','50g sugar','25g flour'],steps:['Melt chocolate and butter together.','Whisk eggs, yolks and sugar until pale.','Fold in the chocolate and flour.','Fill greased ramekins.','Bake at 200°C for 10 minutes.']},
+  {t:'Vanilla Panna Cotta',e:'🍮',time:'4 hrs',serves:4,ing:['500ml cream','60g sugar','1 vanilla pod','3 gelatine leaves'],steps:['Soak gelatine in cold water.','Heat cream, sugar and vanilla.','Squeeze gelatine and stir into the cream.','Pour into moulds and chill 4 hours.']},
+  {t:'Classic Tiramisu',e:'🍰',time:'30 min + chill',serves:8,ing:['500g mascarpone','4 eggs','100g sugar','sponge fingers','strong coffee','cocoa'],steps:['Whisk yolks and sugar, then fold in mascarpone.','Fold in whipped egg whites.','Dip sponge fingers in coffee and layer in a dish.','Cover with cream and repeat.','Chill overnight and dust with cocoa.']},
+  {t:'Malva Pudding',e:'🍯',time:'1 hr',serves:8,ing:['250g sugar','2 eggs','250g flour','1 tbsp apricot jam','250ml cream','100g butter'],steps:['Beat eggs and sugar, then add jam.','Fold in flour and a little milk.','Bake at 180°C for 40 minutes.','Heat cream, butter and sugar, and pour over the hot pudding.']},
+  {t:'Strawberry Cheesecake',e:'🍓',time:'1 hr + chill',serves:10,ing:['250g biscuits','100g butter','600g cream cheese','150g sugar','3 eggs','strawberries'],steps:['Crush biscuits, mix with butter, and press into a tin.','Beat cream cheese, sugar and eggs.','Pour on the base and bake at 160°C for 45 minutes.','Chill overnight and top with strawberries.']},
+  {t:'Crème Brûlée',e:'🥄',time:'1 hr + chill',serves:6,ing:['500ml cream','5 yolks','80g sugar','vanilla'],steps:['Heat cream with vanilla.','Whisk yolks and sugar, and pour in the cream.','Bake in a water bath at 150°C for
