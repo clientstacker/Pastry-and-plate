@@ -153,3 +153,83 @@ const RECIPES = {
   {t:'Malva Pudding',e:'🍯',time:'1 hr',serves:8,ing:['250g sugar','2 eggs','250g flour','1 tbsp apricot jam','250ml cream','100g butter'],steps:['Beat eggs and sugar, then add jam.','Fold in flour and a little milk.','Bake at 180°C for 40 minutes.','Heat cream, butter and sugar, and pour over the hot pudding.']},
   {t:'Strawberry Cheesecake',e:'🍓',time:'1 hr + chill',serves:10,ing:['250g biscuits','100g butter','600g cream cheese','150g sugar','3 eggs','strawberries'],steps:['Crush biscuits, mix with butter, and press into a tin.','Beat cream cheese, sugar and eggs.','Pour on the base and bake at 160°C for 45 minutes.','Chill overnight and top with strawberries.']},
   {t:'Crème Brûlée',e:'🥄',time:'1 hr + chill',serves:6,ing:['500ml cream','5 yolks','80g sugar','vanilla'],steps:['Heat cream with vanilla.','Whisk yolks and sugar, and pour in the cream.','Bake in a water bath at 150°C for
+};
+
+// ---------- ACCESS STATE ----------
+const KEY='pp_access';
+function getAccess(){try{return JSON.parse(localStorage.getItem(KEY))||{once:false,sub:false}}catch(e){return{once:false,sub:false}}}
+function setAccess(a){localStorage.setItem(KEY,JSON.stringify(a))}
+function hasPremium(){const a=getAccess();return a.once||a.sub}
+
+// ---------- ROUTING ----------
+let view={page:'home'};
+function go(page,cat,idx){view={page,cat,idx};render();window.scrollTo(0,0)}
+
+function renderNav(){
+  const nav=document.getElementById('nav');
+  nav.innerHTML=`<button class="${view.page==='home'?'active':''}" onclick="go('home')">Home</button>`+
+   CATEGORIES.map(c=>`<button class="${view.cat===c.id?'active':''}" onclick="go('cat','${c.id}')">${c.emoji} ${c.name}</button>`).join('');
+}
+
+function banner(){
+  const a=getAccess();
+  if(a.sub)return `<div class="banner"><div>✨ <b>Subscriber</b>: full access and all new recipes.</div><button class="btn ghost" style="color:#fff;border-color:#fff" onclick="cancelSub()">Cancel (test)</button></div>`;
+  if(a.once)return `<div class="banner"><div>🔓 <b>Once-off unlocked</b>: all current recipes. Subscribe for future updates.</div><button class="btn alt" onclick="openModal()">Get updates</button></div>`;
+  return `<div class="banner"><div>Free: first <b>${FREE_LIMIT}</b> recipes in every category. Unlock the rest below.</div><button class="btn alt" onclick="openModal()">Unlock all</button></div>`;
+}
+
+function cardHTML(c,r,i){
+  const locked=i>=FREE_LIMIT&&!hasPremium();
+  return `<div class="card ${locked?'locked':''}" onclick="openRecipe('${c}',${i})">
+    <span class="badge ${i<FREE_LIMIT?'free':''}">${i<FREE_LIMIT?'FREE':(locked?'🔒 PREMIUM':'UNLOCKED')}</span>
+    <div class="emoji">${r.e}</div>
+    <div class="body"><h3>${r.t}</h3><small>⏱ ${r.time} · Serves ${r.serves}</small></div></div>`;
+}
+
+function render(){
+  renderNav();
+  const app=document.getElementById('app');
+  if(view.page==='home'){
+    app.innerHTML=banner()+CATEGORIES.map(c=>`
+      <h2 class="section">${c.emoji} ${c.name}</h2>
+      <div class="grid" style="margin-bottom:30px">${RECIPES[c.id].slice(0,4).map((r,i)=>cardHTML(c.id,r,i)).join('')}</div>
+      <button class="btn ghost" onclick="go('cat','${c.id}')" style="margin-bottom:30px">See all ${c.name} →</button>`).join('');
+  } else if(view.page==='cat'){
+    const c=CATEGORIES.find(x=>x.id===view.cat);
+    app.innerHTML=banner()+`<h2 class="section">${c.emoji} ${c.name}</h2><div class="grid">${RECIPES[c.id].map((r,i)=>cardHTML(c.id,r,i)).join('')}</div>`;
+  } else if(view.page==='recipe'){
+    const r=RECIPES[view.cat][view.idx];
+    app.innerHTML=`<button class="btn ghost" onclick="go('cat','${view.cat}')">← Back</button>
+    <div class="recipe"><h2>${r.e} ${r.t}</h2><div class="meta">⏱ ${r.time} · Serves ${r.serves}</div>
+    <h3>Ingredients</h3><ul>${r.ing.map(x=>`<li>${x}</li>`).join('')}</ul>
+    <h3>Method</h3><ol>${r.steps.map(x=>`<li>${x}</li>`).join('')}</ol></div>`;
+  }
+}
+
+function openRecipe(cat,idx){
+  if(idx>=FREE_LIMIT&&!hasPremium()){openModal();return}
+  go('recipe',cat,idx);
+}
+
+// ---------- PAYMENTS (MOCK) ----------
+function openModal(){document.getElementById('modal').classList.add('open')}
+function closeModal(){document.getElementById('modal').classList.remove('open')}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2500)}
+
+// Replace this function with a real call to your payment provider later.
+function buy(type){
+  const a=getAccess();
+  if(type==='once'){a.once=true;toast('Once-off purchase successful (test mode)')}
+  if(type==='sub'){a.sub=true;a.once=false;toast('Subscribed (test mode). Once-off fee not needed.')}
+  setAccess(a);closeModal();render();
+}
+function cancelSub(){setAccess({once:false,sub:false});toast('Subscription cancelled (test mode)');render()}
+
+render();
+</script>
+</body>
+</html>
+                                                                                                                  
+
+                                                                                                                  
+                                                                                                                
