@@ -159,7 +159,21 @@ const RECIPES = {
   {t:'Vanilla Ice Cream',e:'🍨',time:'20 min + freeze',serves:6,ing:['500ml cream','250ml milk','150g sugar','4 yolks','vanilla'],steps:['Heat milk, cream and vanilla.','Whisk yolks with sugar and add the hot milk.','Cook gently until thickened.','Chill, churn, and freeze.']}
 ]
 };
-
+  
+// ---------- PHOTOS ----------
+// Each recipe can have its own photo link in an optional field called img.
+// If there is no img, a food photo is pulled automatically from the recipe title.
+// If the photo fails to load, the emoji shows instead.
+function photoUrl(r){
+  if(r.img)return r.img;
+  const q=encodeURIComponent(r.t.toLowerCase().replace(/[^a-z ]/g,'').split(' ').join(','));
+  return 'https://loremflickr.com/600/400/'+q+',food/all?lock='+(r.t.length*7);
+}
+function photo(r,cls){
+  const fallback=`<div class="emoji" style="font-size:3.2rem;text-align:center;padding:22px 0;background:#f6ecdc">${r.e}</div>`;
+  return `<img class="${cls}" src="${photoUrl(r)}" alt="${r.t}" loading="lazy" onerror="this.outerHTML=this.dataset.fb" data-fb='${fallback.replace(/'/g,"&#39;")}'>`;
+  }
+  
 // ---------- ACCESS STATE ----------
 const KEY='pp_access';
 function getAccess(){try{return JSON.parse(localStorage.getItem(KEY))||{once:false,sub:false}}catch(e){return{once:false,sub:false}}}
